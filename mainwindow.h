@@ -5,6 +5,8 @@
 #include<QObject>
 #include <QMessageBox>
 #include<produit.h>
+#include <QtSerialPort/QSerialPort>
+#include <QtSql/QSqlDatabase>
 namespace Ui {
 class MainWindow;
 }
@@ -37,8 +39,19 @@ private slots:
 
     void on_pb_generer_pdf_clicked();
 
+
+    void on_pb_ajouterimage_clicked();
+
+    void readFromArduino();
+    void updateProductStatus(QString status);
+
+    void on_pb_updateStatus_clicked();
+   void writeToArduino(const QString &message);
 private:
     Ui::MainWindow *ui;
+    QSerialPort serial;     // Serial port for Arduino communication
+    QSqlDatabase db;
+     bool manualUpdate = false;
 };
 
 #endif // MAINWINDOW_H
