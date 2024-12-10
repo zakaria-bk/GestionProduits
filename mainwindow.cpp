@@ -106,7 +106,7 @@ void MainWindow::on_pb_supprimer_clicked()
     produit p;
     p.Setref_prod(ui->le_ref->text());
     bool test=p.supprimer(p.Getref_prod());
-    if (!test)
+    if (test)
     {
         ui->tab_produit->setModel(p.afficherproduit());
         QMessageBox::information(nullptr, QObject::tr("suppression avec succes"),
@@ -152,47 +152,50 @@ void MainWindow::on_pb_modifier_clicked()
     QString categorie;
     QString qualite;
     if (ui->h->isChecked()) {
-        categorie="h";
-        ui->f->setChecked(false);
-    }
-    else if (ui->f->isChecked()) {
-        categorie="f";
-        ui->h->setChecked(false);
+        categorie = "h";
+    } else if (ui->f->isChecked()) {
+        categorie = "f";
+    } else {
+        QMessageBox::critical(nullptr, QObject::tr("Error"),
+            QObject::tr("Please select a category.\nClick Cancel to exit."), QMessageBox::Cancel);
+        return;
     }
 
     if (ui->high->isChecked()) {
-        qualite="high";
-        ui->mediocre->setChecked(false);
-        ui->low->setChecked(false);
+        qualite = "high";
+    } else if (ui->mediocre->isChecked()) {
+        qualite = "mediocre";
+    } else if (ui->low->isChecked()) {
+        qualite = "low";
+    } else {
+        QMessageBox::critical(nullptr, QObject::tr("Error"),
+            QObject::tr("Please select a quality.\nClick Cancel to exit."), QMessageBox::Cancel);
+        return;
     }
-    else if (ui->mediocre->isChecked()) {
-        qualite="mediocre";
-        ui->high->setChecked(false);
-        ui->low->setChecked(false);
-    }
-    else if (ui->low->isChecked()) {
-        qualite="low";
-        ui->high->setChecked(false);
-        ui->mediocre->setChecked(false);
-    }
+
     produit p(ref,prix,taille,couleur,quantite,categorie,qualite);
     if((prix>0) && (quantite>0))
     {
         bool test=p.rechercherproduit(ref);
         if (test)
-        { //p.statproduit(series);
+        {
+            bool test1=p.modifierproduit(ref,prix,taille,couleur,categorie,quantite,qualite);
+            if(test1){
             ui->tab_produit->setModel(p.afficherproduit());
             QMessageBox::information(nullptr, QObject::tr("modification avec succes"),
                         QObject::tr(" successful.\n"
                                     "Click Cancel to exit."), QMessageBox::Cancel);
-
+        }else{QMessageBox::critical(nullptr, QObject::tr("erreur"),
+                                    QObject::tr(" erreur.\n"
+                                                "Click Cancel to exit."), QMessageBox::Cancel);}
         }
         else
         {
             QMessageBox::critical(nullptr, QObject::tr("erreur"),
-                        QObject::tr(" erreur.\n"
+                        QObject::tr(" reference inexistante.\n"
                                     "Click Cancel to exit."), QMessageBox::Cancel);
-        }}
+        }
+    }
     else
 
             QMessageBox::critical(nullptr, QObject::tr("erreur"),

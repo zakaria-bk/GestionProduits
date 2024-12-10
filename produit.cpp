@@ -43,13 +43,16 @@ bool produit::supprimer(QString ref){
 }
 
 bool produit::rechercherproduit(QString ref) {
-    QSqlQuery q("select * from GS_PRODUIT where ref_produit=:ref");
-    q.bindValue(":ref",ref);
-    while(q.next())
-    {
-        return true;
+    QSqlQuery q;
+    q.prepare("SELECT * FROM GS_PRODUIT WHERE ref_produit = :ref");
+    q.bindValue(":ref", ref);
+    if (!q.exec()) {
+        qDebug() << "Error executing query:" << q.lastError().text();
+        return false;
     }
-    return false;
+
+    // Check if there is at least one result
+    return q.next();
 }
 
 
@@ -94,19 +97,20 @@ QSqlQueryModel* produit::afficherproduit()
     return model;
 }
 
-bool produit::modifierproduit(QString ref)
+bool produit::modifierproduit(QString ref,float prix,QString taille,QString couleur,QString categorie,int quantite,QString qualite)
 {
     QSqlQuery query;
+    QString pr=QString::number(prix);
+    QString q=QString::number(quantite);
     query.prepare("update GS_PRODUIT set prix=:prix,taille=:taille,couleur=:couleur,quantite=:quantite,categorie=:categorie,qualite=:qualite where ref_produit=:ref");
-    query.bindValue(":ref",ref_prod);
-    query.bindValue(":prix",prix);
+    query.bindValue(":ref",ref);
+    query.bindValue(":prix",pr);
     query.bindValue(":taille",taille);
     query.bindValue(":couleur",couleur);
     query.bindValue(":categorie",categorie);
-    query.bindValue(":quantite",quantite);
+    query.bindValue(":quantite",q);
     query.bindValue(":qualite",qualite);
-    query.exec();
-    return rechercherproduit(ref);
+    return query.exec();
 }
 
 QSqlQueryModel* produit::trierproduit_quantite()

@@ -63,7 +63,7 @@ public:
         bool rechercherproduit(QString ref);
         QSqlQueryModel* rechercherproduit1(QString a);
         QSqlQueryModel* afficherproduit();
-        bool modifierproduit(QString);
+        bool modifierproduit(QString ref,float prix,QString taille,QString couleur,QString categorie,int quantite,QString qualite);
         QSqlQueryModel* trierproduit_quantite();
         QSqlQueryModel* trierproduit_prix();
         QSqlQueryModel* trierproduit_qualite();
