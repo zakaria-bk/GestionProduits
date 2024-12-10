@@ -1,5 +1,6 @@
 #ifndef PRODUIT_H
 #define PRODUIT_H
+#include <QMessageBox>
 #include<QSqlQuery>
 #include<QSqlQueryModel>
 #include<QString>
@@ -11,7 +12,19 @@
 #include <QSqlQuery>
 #include <QDebug>
 #include <QFileInfo>
-
+#include <QChart>
+#include <QChartView>
+#include <QBarSeries>
+#include <QBarSet>
+#include <QPieSeries>
+#include <QPieSlice>
+#include <QVBoxLayout>
+#include <QStyledItemDelegate>
+#include <QPainter>
+#include <QImage>
+#include <QPixmap>
+#include <QByteArray>
+#include <QSqlTableModel>
 using namespace std;
 
 class produit
@@ -55,6 +68,19 @@ public:
         QSqlQueryModel* trierproduit_prix();
         QSqlQueryModel* trierproduit_qualite();
         void CREATION_PDF();
+        bool ajouterImage(QString ref,const QString &imagePath);
 };
+
+
+class ImageDelegate : public QStyledItemDelegate
+{
+
+public:
+    explicit ImageDelegate(QObject *parent = nullptr);
+    void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override;
+    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override;
+};
+
+
 
 #endif // PRODUIT_H

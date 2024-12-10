@@ -43,7 +43,8 @@ bool produit::supprimer(QString ref){
 }
 
 bool produit::rechercherproduit(QString ref) {
-    QSqlQuery q("select * from produit where ref="+ref);
+    QSqlQuery q("select * from GS_PRODUIT where ref_produit=:ref");
+    q.bindValue(":ref",ref);
     while(q.next())
     {
         return true;
@@ -63,12 +64,9 @@ QSqlQueryModel* produit::rechercherproduit1(QString a) {
     qDebug() << "Requête SQL:" << queryText;
     model->setQuery(queryText);
 
-    // Vérifiez les erreurs
     if (model->lastError().isValid()) {
         qDebug() << "Erreur SQL:" << model->lastError().text();
     }
-
-    // Ajout des headers (assurez-vous que les colonnes existent dans cet ordre)
     model->setHeaderData(0, Qt::Horizontal, QObject::tr("Reference"));
     model->setHeaderData(1, Qt::Horizontal, QObject::tr("Prix"));
     model->setHeaderData(2, Qt::Horizontal, QObject::tr("Taille"));
@@ -92,14 +90,15 @@ QSqlQueryModel* produit::afficherproduit()
      model->setHeaderData(4, Qt::Horizontal,QObject::tr("Quantité"));
      model->setHeaderData(5, Qt::Horizontal,QObject::tr("Catégorie"));
      model->setHeaderData(6, Qt::Horizontal,QObject::tr("Qualité"));
+     model->setHeaderData(7, Qt::Horizontal, QObject::tr("Image"));
     return model;
 }
 
 bool produit::modifierproduit(QString ref)
 {
     QSqlQuery query;
-    query.prepare("update GS_PRODUIT set prix=:prix,taille=:taille,couleur=:couleur,categorie=:categorie,quantite=:quantite,qualite=:qualite where ref_produit=:ref");
-    query.bindValue(":ref",ref_prod);//injection SQL => securite
+    query.prepare("update GS_PRODUIT set prix=:prix,taille=:taille,couleur=:couleur,quantite=:quantite,categorie=:categorie,qualite=:qualite where ref_produit=:ref");
+    query.bindValue(":ref",ref_prod);
     query.bindValue(":prix",prix);
     query.bindValue(":taille",taille);
     query.bindValue(":couleur",couleur);
@@ -157,11 +156,8 @@ QSqlQueryModel* produit::trierproduit_qualite() {
 
 void produit::CREATION_PDF()
 {
-    // Open a file dialog to get the save location for the PDF file
-    QString fileName = QFileDialog::getSaveFileName((QWidget*)0, "Export PDF", QString(), "*.pdf");
-    if (QFileInfo(fileName).suffix().isEmpty()) {
-        fileName.append(".pdf");
-    }
+    // Define the file name and path directly
+    QString fileName = "C:/Users/medzi/Downloads/produits.pdf";
 
     // Set up the printer for PDF generation
     QPrinter printer(QPrinter::PrinterResolution);
@@ -202,4 +198,53 @@ void produit::CREATION_PDF()
     // Set the page size and print the document to the PDF
     doc.setPageSize(printer.pageRect().size());  // This ensures the page layout is correct
     doc.print(&printer);  // Print the document to the specified file
+
+    // Optional: Inform the user that the PDF has been saved
+    QMessageBox::information(nullptr, "Export PDF", "The PDF file has been successfully saved to: " + fileName);
 }
+
+
+ImageDelegate::ImageDelegate(QObject *parent)
+    : QStyledItemDelegate(parent)
+{
+}
+
+
+void ImageDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const
+{
+    if (index.column() == 7) { // Assuming the image column is at index 7
+        QByteArray imageData = index.data(Qt::EditRole).toByteArray();
+        QPixmap pixmap;
+        pixmap.loadFromData(imageData);
+
+        painter->drawPixmap(option.rect, pixmap.scaled(option.rect.size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    } else {
+        QStyledItemDelegate::paint(painter, option, index);
+    }
+}
+
+QSize ImageDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
+{
+    if (index.column() == 7) { // Image column
+        return QSize(100, 100); // Default size for images
+    }
+    return QStyledItemDelegate::sizeHint(option, index);
+}
+bool produit::ajouterImage(QString ref, const QString &imagePath)
+{
+    QSqlQuery query;
+    QFile file(imagePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        qDebug() << "Failed to open image file.";
+        return false;
+    }
+    QByteArray imageData = file.readAll();
+    query.prepare("UPDATE GS_PRODUIT SET image = :image WHERE ref_produit = :ref");
+    query.bindValue(":image", imageData);
+    query.bindValue(":ref", ref);
+    return query.exec();
+}
+
+
+
+

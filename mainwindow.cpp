@@ -1,11 +1,29 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-
+#include <QSerialPortInfo>
+#include <QDebug>
+#include <QSqlQuery>
+#include <QMessageBox>
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    // Initialize serial port
+    serial.setPortName("COM6");
+    serial.setBaudRate(QSerialPort::Baud9600);
+    serial.setDataBits(QSerialPort::Data8);
+    serial.setParity(QSerialPort::NoParity);
+    serial.setStopBits(QSerialPort::OneStop);
+    serial.setFlowControl(QSerialPort::NoFlowControl);
+
+    // Open serial port
+    if (!serial.open(QIODevice::ReadWrite)) {
+        QMessageBox::critical(this, "Error", "Unable to open serial port!");
+    }
+
+    // Connect serial data available signal
+    connect(&serial, &QSerialPort::readyRead, this, &MainWindow::readFromArduino);
 }
 
 MainWindow::~MainWindow()
@@ -90,7 +108,6 @@ void MainWindow::on_pb_supprimer_clicked()
     bool test=p.supprimer(p.Getref_prod());
     if (!test)
     {
-        //p.statproduit(series);
         ui->tab_produit->setModel(p.afficherproduit());
         QMessageBox::information(nullptr, QObject::tr("suppression avec succes"),
                     QObject::tr(" successful.\n"
@@ -118,6 +135,11 @@ void MainWindow::on_pb_afficher_clicked()
 {
    produit p;
    ui->tab_produit->setModel(p.afficherproduit());
+   ImageDelegate *imageDelegate = new ImageDelegate(this);
+   ui->tab_produit->setItemDelegateForColumn(7, imageDelegate);
+
+   ui->tab_produit->resizeColumnsToContents();
+   ui->tab_produit->resizeRowsToContents();
 }
 
 void MainWindow::on_pb_modifier_clicked()
@@ -156,21 +178,21 @@ void MainWindow::on_pb_modifier_clicked()
     produit p(ref,prix,taille,couleur,quantite,categorie,qualite);
     if((prix>0) && (quantite>0))
     {
-    bool test=p.modifierproduit(ref);
-    if (!test)
-    { //p.statproduit(series);
-        ui->tab_produit->setModel(p.afficherproduit());
-        QMessageBox::information(nullptr, QObject::tr("modification avec succes"),
-                    QObject::tr(" successful.\n"
-                                "Click Cancel to exit."), QMessageBox::Cancel);
+        bool test=p.rechercherproduit(ref);
+        if (test)
+        { //p.statproduit(series);
+            ui->tab_produit->setModel(p.afficherproduit());
+            QMessageBox::information(nullptr, QObject::tr("modification avec succes"),
+                        QObject::tr(" successful.\n"
+                                    "Click Cancel to exit."), QMessageBox::Cancel);
 
-    }
-    else
-    {
-        QMessageBox::critical(nullptr, QObject::tr("erreur"),
-                    QObject::tr(" erreur.\n"
-                                "Click Cancel to exit."), QMessageBox::Cancel);
-    }}
+        }
+        else
+        {
+            QMessageBox::critical(nullptr, QObject::tr("erreur"),
+                        QObject::tr(" erreur.\n"
+                                    "Click Cancel to exit."), QMessageBox::Cancel);
+        }}
     else
 
             QMessageBox::critical(nullptr, QObject::tr("erreur"),
@@ -210,7 +232,6 @@ void MainWindow::on_pb_recherche_clicked() {
     produit p;
     QSqlQueryModel *model = p.rechercherproduit1(searchText);
 
-    // Vérifiez si le modèle contient des données
     if (model->rowCount() > 0) {
         ui->tab_produit->setModel(model);
     } else {
@@ -233,4 +254,79 @@ void MainWindow::on_pb_generer_pdf_clicked()
 {
     produit p;
     p.CREATION_PDF();
+}
+
+void MainWindow::on_pb_ajouterimage_clicked()
+{
+    QString ref = ui->le_ref->text(); // Get the product reference from the input field
+    if (ref.isEmpty()) {
+        QMessageBox::warning(this, "Error", "Please select a product reference!");
+        return;
+    }
+
+    QString imagePath = QFileDialog::getOpenFileName(this, "Select Image", "", "Images (*.png *.jpg *.jpeg)");
+    if (imagePath.isEmpty()) {
+        return; // User canceled the operation
+    }
+
+    produit p;
+    bool success = p.ajouterImage(ref, imagePath);
+    if (success) {
+        QMessageBox::information(this, "Success", "Image added successfully!");
+        ui->tab_produit->setModel(p.afficherproduit());
+    } else {
+        QMessageBox::critical(this, "Error", "Failed to add image to the database.");
+    }
+}
+void MainWindow::readFromArduino() {
+    QByteArray data = serial.readAll(); // Read all available data from Arduino
+    QString receivedData = QString::fromUtf8(data).trimmed();
+    qDebug() << "Received from Arduino:" << receivedData;
+
+    if (receivedData.contains("Product Detected")) {
+        updateProductStatus("expose"); // Update the database
+        writeToArduino("1"); // Send '1' to Arduino to display "1"
+    } else if (receivedData.contains("Product Missing")) {
+        updateProductStatus("non expose"); // Update the database
+        writeToArduino("0"); // Send '0' to Arduino to display "0"
+    } else {
+        qDebug() << "Unrecognized data from Arduino:" << receivedData;
+    }
+}
+
+
+void MainWindow::updateProductStatus(QString status) {
+    QString ref_prod = ui->le_ref->text();
+
+    if (ref_prod.isEmpty()) {
+        qDebug() << "No product reference provided. Skipping database update.";
+        return;
+    }
+
+    QSqlQuery query;
+    query.prepare("UPDATE GS_produit SET etagiére = :status WHERE ref_produit = :ref_prod");
+    query.bindValue(":status", status);
+    query.bindValue(":ref_prod", ref_prod);
+
+    if (query.exec()) {
+        qDebug() << "Product status updated successfully to:" << status;
+    } else {
+        qDebug() << "Failed to update product status:" << query.lastError().text();
+    }
+}
+
+
+void MainWindow::on_pb_updateStatus_clicked()
+{
+    manualUpdate = true; // Indicate this is a manual update
+    readFromArduino();  // Trigger Arduino read
+    manualUpdate = false; // Reset after the operation
+}
+void MainWindow::writeToArduino(const QString &message) {
+    if (serial.isOpen() && serial.isWritable()) {
+        serial.write(message.toUtf8());
+        qDebug() << "Sent to Arduino:" << message;
+    } else {
+        QMessageBox::warning(this, "Error", "Serial port is not open or writable.");
+    }
 }
